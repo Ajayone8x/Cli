@@ -1,1 +1,217 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Video Player</title>
+  <script src="https://cdn.jsdelivr.net/npm/shaka-player@latest/dist/shaka-player.ui.js"></script>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/shaka-player@latest/dist/controls.css">
+  
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+
+  <style>
+    /* CSS Variables for Easy Theme Customization */
+    :root {
+      --primary-glow: #00ffff;
+      --secondary-glow: #ff00ff;
+      --bg-start: #0f0c29;
+      --bg-mid: #302b63;
+      --bg-end: #24243e;
+      --text-primary: #ffffff;
+      --text-secondary: #cccccc;
+      --popup-bg: rgba(20, 20, 40, 0.6);
+    }
+
+    /* Animated Gradient Background */
+    @keyframes gradient-animation {
+      0% { background-position: 0% 50%; }
+      50% { background-position: 100% 50%; }
+      100% { background-position: 0% 50%; }
+    }
+
+    html, body {
+      margin: 0; padding: 0; height: 100%;
+      font-family: 'Poppins', sans-serif;
+      background: linear-gradient(-45deg, var(--bg-start), var(--bg-mid), var(--bg-end), var(--secondary-glow));
+      background-size: 400% 400%;
+      animation: gradient-animation 20s ease infinite;
+      overflow: hidden;
+    }
+
+    /* --- Your Existing Player and UI Styles --- */
+    #video-container { width: 100%; height: 100%; position: relative; }
+    video { width: 100%; height: 100%; background: #000; }
+    #overlay-image {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 100%;
+      height: auto;
+      aspect-ratio: 16 / 9;
+      transform: translate(-50%, -50%);
+      object-fit: cover;
+      z-index: 5;
+    }
+
+    .shaka-controls-container { z-index: 10 !important; }
+    .shaka-play-button { z-index: 15 !important; }
+
+    /* PREMIUM MENU STYLES */
+    .shaka-settings-menu {
+      background: rgba(30, 30, 30, 0.6) !important;
+      backdrop-filter: blur(10px);
+      border-radius: 12px;
+      box-shadow: 0 0 15px rgba(255,255,255,0.2);
+      padding: 8px 10px;
+      border: 1px solid rgba(255,255,255,0.15);
+      max-width: 220px;
+      animation: fadeIn 0.25s ease;
+    }
+    .shaka-settings-menu button {
+      display: block; width: 100%; background: rgba(255,255,255,0.04);
+      color: #fff; border-radius: 8px; padding: 6px 12px; margin: 4px 0;
+      border: 2px solid rgba(255,255,255,0.35); font-size: 13px;
+      transition: all 0.3s ease; position: relative; overflow: hidden;
+    }
+    .shaka-settings-menu button::before {
+      content: ""; position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+      background: linear-gradient(135deg, rgba(0,198,255,0.12), rgba(0,114,255,0.12));
+      opacity: 0; transition: opacity 0.3s ease; border-radius: 8px; z-index: 0;
+    }
+    .shaka-settings-menu button:hover::before, .shaka-settings-menu button:focus::before { opacity: 1; }
+    .shaka-settings-menu button:hover, .shaka-settings-menu button:focus {
+      border-color: #fff; box-shadow: 0 0 10px rgba(0, 198, 255, 0.5); color: #fff;
+    }
+    .shaka-settings-menu button[aria-checked="true"] {
+      background: linear-gradient(135deg, #00c6ff, #0072ff); color: #fff;
+      border-color: #fff; box-shadow: 0 0 12px rgba(0, 198, 255, 0.7);
+    }
+    .shaka-settings-menu button:focus { outline: none !important; box-shadow: none !important; }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: scale(0.95); }
+      to { opacity: 1; transform: scale(1); }
+    }
+
+    /* --- Styles for the Telegram Popup --- */
+    .popup-overlay {
+      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      z-index: 9998; display: flex; justify-content: center;
+      align-items: center; transition: opacity 0.3s ease;
+    }
+    .telegram-popup {
+      background: var(--popup-bg); backdrop-filter: blur(15px);
+      -webkit-backdrop-filter: blur(15px); color: var(--text-primary);
+      padding: 30px 25px; border-radius: 16px;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      box-shadow: 0 0 60px 5px rgba(0, 0, 0, 0.5), inset 0 0 0 1.5px var(--primary-glow);
+      z-index: 9999; text-align: center; width: 90%; max-width: 380px;
+      animation: popup-enter 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+    }
+    @keyframes popup-enter {
+        from { opacity: 0; transform: scale(0.8) translateY(20px); }
+        to { opacity: 1; transform: scale(1) translateY(0); }
+    }
+    .popup-overlay.closing { opacity: 0; }
+    .popup-overlay.closing .telegram-popup {
+      transform: scale(0.8); opacity: 0;
+      transition: transform 0.3s ease, opacity 0.3s ease;
+    }
+    .telegram-popup h2 {
+      margin-top: 0; font-weight: 700; font-size: 24px;
+      color: var(--primary-glow); text-shadow: 0 0 10px var(--primary-glow);
+    }
+    .telegram-popup p { font-size: 14px; line-height: 1.6; color: var(--text-secondary); }
+    .telegram-popup p strong { color: var(--text-primary); font-weight: 600; }
+    .telegram-popup button {
+      width: 100%; padding: 14px; margin-top: 15px; font-size: 16px;
+      font-weight: 600; border: none; border-radius: 8px; cursor: pointer;
+      transition: all 0.3s ease; font-family: 'Poppins', sans-serif;
+    }
+    .telegram-popup a { text-decoration: none; }
+    .telegram-popup .join {
+      background-color: var(--primary-glow); color: #0c0c1e;
+      box-shadow: 0 0 20px 0px rgba(0, 255, 255, 0.5);
+    }
+    .telegram-popup .join:hover {
+      transform: translateY(-4px) scale(1.03);
+      box-shadow: 0 0 35px 5px rgba(0, 255, 255, 0.7);
+    }
+    .telegram-popup .joined {
+      background-color: transparent; color: var(--primary-glow);
+      border: 2px solid var(--primary-glow);
+    }
+    .telegram-popup .joined:hover { background-color: var(--primary-glow); color: #0c0c1e; }
+    @media (max-width: 480px) { .telegram-popup { padding: 25px 20px; } }
+  </style>
+</head>
+<body>
+  <div id="video-container">
+    <video id="video" class="shaka-video" autoplay></video>
+    <img id="overlay-image" src="https://i.ibb.co/RGW2Zpqd/images-3-10.jpg" alt="willowsports-hrb">
+    <div class="shaka-controls-container" shaka-controls></div>
+  </div>
+
+  <div class="popup-overlay" id="popupOverlay">
+    <div class="telegram-popup" id="telegramPopup">
+      <h2>Support Us!</h2>
+      <p>Join our Telegram channel <strong>@one8chirag</strong> for instant updates, highlights, and exclusive links.</p>
+      <a href="https://t.me/+199H69Pqbd82MmM9" target="_blank"><button class="join">Join Now</button></a>
+      <button class="joined" onclick="closePopup()">Already Joined</button>
+    </div>
+  </div>
+
+  <script>
+    // Function to close the popup with an animation
+    function closePopup() {
+      const popupOverlay = document.getElementById('popupOverlay');
+      popupOverlay.classList.add('closing');
+      setTimeout(() => {
+        popupOverlay.style.display = 'none';
+      }, 300);
+    }
+
+    // Your Existing Player Logic
+    document.addEventListener('DOMContentLoaded', async () => {
+      const manifestUri = 'https://sundirectgo-live.pc.cdn.bitgravity.com/hd39/dth.mpd';
+      const video = document.getElementById('video');
+      const overlayImage = document.getElementById('overlay-image');
+      const container = document.getElementById('video-container');
+
+      const player = new shaka.Player(video);
+      const ui = new shaka.ui.Overlay(player, container, video);
+      const controls = ui.getControls();
+
+      player.configure({
+        drm: {
+          clearKeys: {
+            'e36345ee8f2c44b3bfeecd8c8444ff96': 'da4cf1b9b4f4325477874b3f1b84d9b9'
+          }
+        }
+      });
+
+      ui.configure({
+        controlPanelElements: [
+          'play_pause', 'rewind', 'fast_forward', 'time_and_duration',
+          'spacer', 'mute', 'volume', 'captions', 'quality', 'playback_rate', 
+          'cast', 'loop', 'fullscreen'
+        ],
+        enableQualitySelection: true
+      });
+
+      player.addEventListener('error', (e) => console.error('Error code', e.detail.code, e.detail));
+
+      try {
+        await player.load(manifestUri);
+        console.log('The video has now been loaded!');
+      } catch (e) {
+        console.error('Error loading video', e);
+      }
+
+      video.addEventListener('playing', () => {
+        overlayImage.remove();
+      });
+    });
+  </script>
+</body>
+</html>
 
